@@ -1,6 +1,7 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
 
 /**
  * Supabase client for Client Components.
@@ -11,10 +12,7 @@ let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 export function createSupabaseBrowserClient() {
   if (browserClient) return browserClient;
 
-  browserClient = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  browserClient = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   return browserClient;
 }
