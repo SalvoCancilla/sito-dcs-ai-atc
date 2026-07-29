@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
-import { createSupabasePublicClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const supabase = createSupabasePublicClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json(
+      { error: "Supabase env vars not configured" },
+      { status: 500 },
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+  });
+
   const { data, error } = await supabase
     .from("releases")
     .select(
@@ -18,7 +32,7 @@ export async function GET() {
 
   if (error || !data) {
     return NextResponse.json(
-      { error: "No release available", detail: error?.message },
+      { error: "No release available", detail: error?.message ?? "no data" },
       { status: 404 },
     );
   }
