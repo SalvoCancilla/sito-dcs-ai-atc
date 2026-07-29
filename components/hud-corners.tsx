@@ -19,7 +19,7 @@ export function HudCorners({
     <div
       aria-hidden="true"
       className={cn(
-        "absolute inset-0 transition-opacity duration-300",
+        "pointer-events-none absolute inset-0 transition-opacity duration-300",
         onHover ? "opacity-0 group-hover:opacity-100" : "opacity-100",
         className,
       )}
