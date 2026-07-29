@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePublicClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabasePublicClient();
   const { data, error } = await supabase
     .from("releases")
     .select(
@@ -14,11 +14,11 @@ export async function GET() {
     .eq("channel", "stable")
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (!data) {
+  if (error || !data) {
     return NextResponse.json(
-      { error: "No release available", debug: { error, hasEnv: !!process.env.NEXT_PUBLIC_SUPABASE_URL } },
+      { error: "No release available", detail: error?.message },
       { status: 404 },
     );
   }

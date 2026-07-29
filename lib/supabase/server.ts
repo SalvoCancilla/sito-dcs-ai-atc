@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 /**
@@ -28,6 +29,20 @@ export function createSupabaseServerClient() {
         },
       },
     },
+  );
+}
+
+/**
+ * Plain Supabase client without cookie/session management.
+ * Use for public route handlers (releases, support tickets) that don't
+ * need user auth context. Avoids the @supabase/ssr ByteString header bug
+ * on Vercel serverless when no session cookie is present.
+ */
+export function createSupabasePublicClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } },
   );
 }
 
