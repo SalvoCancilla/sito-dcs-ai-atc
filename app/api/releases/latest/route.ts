@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 export async function GET() {
   const supabase = createSupabaseServerClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("releases")
     .select(
       "version, channel, platform, changelog, asset_size_bytes, asset_sha256, signature_hex, is_mandatory, created_at",
@@ -18,7 +18,7 @@ export async function GET() {
 
   if (!data) {
     return NextResponse.json(
-      { error: "No release available" },
+      { error: "No release available", debug: { error, hasEnv: !!process.env.NEXT_PUBLIC_SUPABASE_URL } },
       { status: 404 },
     );
   }
