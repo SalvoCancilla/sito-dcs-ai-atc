@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Download, LogOut, Monitor, ShieldCheck, Cpu } from "lucide-react";
 
-import { getCurrentUser, getLicense, getDevices, getLatestRelease } from "@/lib/auth";
+import { getCurrentUser, getLicense, getDevices } from "@/lib/auth";
+import { getLatestRelease } from "@/lib/releases";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";

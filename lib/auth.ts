@@ -1,5 +1,12 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSupabasePublicClient } from "@/lib/supabase/server";
+
+/**
+ * Server-side accessors for the signed-in user's account data.
+ *
+ * Every query uses `maybeSingle()`: a user with no profile row or no license
+ * is a normal state (just-registered, never purchased) and must render as
+ * "nothing yet", not as a 500.
+ */
 
 export interface AuthUser {
   id: string;
@@ -25,25 +32,6 @@ export interface DeviceInfo {
   created_at: string;
 }
 
-export interface ReleaseInfo {
-  version: string;
-  channel: string;
-  platform: string;
-  changelog: string;
-  download_url: string;
-  size_bytes: number;
-  sha256: string;
-  signature_hex: string;
-  is_mandatory: boolean;
-  created_at: string;
-  assets: Array<{
-    name: string;
-    download_url: string;
-    size_bytes: number;
-    sha256: string;
-  }>;
-}
-
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const supabase = createSupabaseServerClient();
   const {
@@ -51,12 +39,11 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Fetch profile for display_name / is_active
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name, is_active")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   return {
     id: user.id,
@@ -80,7 +67,7 @@ export async function getLicense(): Promise<LicenseInfo | null> {
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!data) return null;
   return {
@@ -100,7 +87,6 @@ export async function getDevices(): Promise<DeviceInfo[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  // Get the user's active license first
   const { data: license } = await supabase
     .from("licenses")
     .select("id")
@@ -108,7 +94,7 @@ export async function getDevices(): Promise<DeviceInfo[]> {
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
   if (!license) return [];
 
   const { data } = await supabase
@@ -118,53 +104,4 @@ export async function getDevices(): Promise<DeviceInfo[]> {
     .order("created_at", { ascending: false });
 
   return (data ?? []) as DeviceInfo[];
-}
-
-export async function getLatestRelease(): Promise<ReleaseInfo | null> {
-  const supabase = createSupabasePublicClient();
-  const { data, error } = await supabase
-    .from("releases")
-    .select(
-      "version, channel, platform, changelog, asset_size_bytes, asset_sha256, signature_hex, is_mandatory, created_at",
-    )
-    .eq("is_listed", true)
-    .eq("channel", "stable")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) {
-    // Fallback to hardcoded release if Supabase query fails (ByteString bug)
-    return {
-      version: "1.0.1",
-      channel: "stable",
-      platform: "windows",
-      changelog: "Initial beta release. Licensing wizard with email login + activation key, model download from R2, English UI, embedded ATC server (uvicorn), 3 multiplayer modes (single/host/client).",
-      download_url: "/api/releases/download?v=1.0.1",
-      size_bytes: 1489345544,
-      sha256: "d88806f1beeaba8e52a187defd46f12e5e870d4ef7b3717add5b89f0b609e974",
-      signature_hex: "fa9999d5e02c45e5c7f827cc3fdfa34910f6725c4053efd2b6cb870b7c761ae80d095efb623da49c46b7e84c6e7bdbdfc1c214ad34a4fb144d1e61c5b3da6b02",
-      is_mandatory: false,
-      created_at: "2026-07-28T21:10:38.851845+00:00",
-      assets: [],
-    };
-  }
-
-  if (!data) return null;
-
-  const downloadUrl = `/api/releases/download?v=${data.version}`;
-
-  return {
-    version: data.version,
-    channel: data.channel,
-    platform: data.platform,
-    changelog: data.changelog ?? "",
-    download_url: downloadUrl,
-    size_bytes: data.asset_size_bytes ?? 0,
-    sha256: data.asset_sha256 ?? "",
-    signature_hex: data.signature_hex ?? "",
-    is_mandatory: data.is_mandatory ?? false,
-    created_at: data.created_at ?? "",
-    assets: [],
-  };
 }

@@ -1,78 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+import {
+  createSupabaseServerClient,
+  createSupabaseBearerClient,
+} from "@/lib/supabase/server";
+import { getReleaseAssetKey } from "@/lib/releases";
+import { bearerToken, jsonError } from "@/lib/api";
+import { r2PublicBase } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Download endpoint — streams the installer from R2.
+ * Authorise an installer download, then redirect to R2.
  *
- * Flow:
- *   1. Authenticate the user (Supabase session cookie).
- *   2. Check that the user has an active license.
- *   3. Look up the release by version (query param ?v=).
- *   4. Redirect to the R2 public URL for the asset.
- *
- * The R2 public base URL is configured via R2_PUBLIC_BASE env var.
- * Falls back to the known public URL if not set.
+ * Serves two callers: the website (browser session cookie) and the desktop
+ * app's auto-updater (Bearer access token). Both must be signed in and hold
+ * an active license.
  */
-const R2_PUBLIC_BASE =
-  process.env.R2_PUBLIC_BASE ||
-  "https://pub-db8212e605cb457c9304451c9d8728db.r2.dev";
-
 export async function GET(req: NextRequest) {
-  // 1. Authenticate
-  const supabase = createSupabaseServerClient();
+  const token = bearerToken(req);
+  const supabase = token
+    ? createSupabaseBearerClient(token)
+    : createSupabaseServerClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const loginUrl = new URL("/login?next=/download", req.url);
-    return NextResponse.redirect(loginUrl);
+    // API clients want a status code; browsers want the login page.
+    if (token) return jsonError("Not signed in", 401, "not_authenticated");
+    return NextResponse.redirect(new URL("/login?next=/download", req.url));
   }
 
-  // 2. Check active license
   const { data: license } = await supabase
     .from("licenses")
-    .select("id, is_active")
+    .select("id")
     .eq("user_id", user.id)
     .eq("is_active", true)
-    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (!license) {
-    return NextResponse.json(
-      { error: "No active license. Purchase a license to download." },
-      { status: 403 },
+    return jsonError(
+      "No active license. Purchase a license to download.",
+      403,
+      "no_license",
     );
   }
 
-  // 3. Look up the release
   const version = req.nextUrl.searchParams.get("v");
   if (!version) {
-    return NextResponse.json(
-      { error: "Missing version parameter (?v=)" },
-      { status: 400 },
-    );
+    return jsonError("Missing version parameter (?v=)", 400, "bad_request");
   }
 
-  const { data: release, error } = await supabase
-    .from("releases")
-    .select("version, asset_key, is_listed, channel")
-    .eq("version", version)
-    .eq("is_listed", true)
-    .maybeSingle();
-
-  if (error || !release) {
-    return NextResponse.json(
-      { error: "Release not found", detail: error?.message },
-      { status: 404 },
-    );
+  const assetKey = await getReleaseAssetKey(version);
+  if (!assetKey) {
+    return jsonError(`Release ${version} not found`, 404, "not_found");
   }
 
-  // 4. Redirect to R2 public URL
-  const downloadUrl = `${R2_PUBLIC_BASE}/${release.asset_key}`;
-  return NextResponse.redirect(downloadUrl);
+  return NextResponse.redirect(`${r2PublicBase()}/${assetKey}`);
 }

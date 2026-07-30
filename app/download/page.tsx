@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Download, ArrowRight } from "lucide-react";
 
-import { getCurrentUser, getLicense, getLatestRelease } from "@/lib/auth";
+import { getCurrentUser, getLicense } from "@/lib/auth";
+import { getLatestRelease } from "@/lib/releases";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { HudCorners } from "@/components/hud-corners";

@@ -28,17 +28,23 @@ cookie **httpOnly** (mai esposto al client JS).
 ```bash
 cd distribuzione/sito
 pnpm install
-cp .env.example .env.local
-# modifica .env.local con i valori reali
+# Compila le credenziali in .env alla radice del repo (vedi .env.example)
+# next.config.mjs carica automaticamente ../../.env
 ```
 
-Variabili d'ambiente (vedi `.env.example`):
+Variabili d'ambiente (vedi `.env.example` alla radice del repo):
 
 | Variabile | Descrizione |
 |---|---|
-| `LICENSING_API_URL` | URL del backend FastAPI (server-side only) |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL progetto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chiave anon Supabase (pubblica) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role Supabase (server-only, bypassa RLS) |
+| `STRIPE_SECRET_KEY` | Chiave segreta Stripe (server-only) |
+| `STRIPE_PRICE_ID_PERPETUAL` | Price ID Stripe per licenza perpetua |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret webhook Stripe |
+| `LICENSE_SIGNING_PRIVATE_KEY_PEM` | PEM Ed25519 per firma claims (server-only) |
+| `R2_PUBLIC_BASE` | URL pubblico base del bucket R2 |
 | `NEXT_PUBLIC_SITE_URL` | URL pubblico del sito (canonical, sitemap, OG) |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Chiave pubblicabile Stripe (opzionale, lato client) |
 | `AUTH_COOKIE_DOMAIN` | (opzionale) dominio cookie condiviso tra sottodomini |
 
 ## Sviluppo
@@ -143,7 +149,7 @@ sito/
 ├── tailwind.config.ts          # palette radar/freq/cockpit
 ├── components.json             # config shadcn
 ├── tsconfig.json / postcss.config.js / .eslintrc.json
-└── .env.example
+└── (le env vars sono in .env alla radice del repo, non qui)
 ```
 
 ## Sicurezza & auth

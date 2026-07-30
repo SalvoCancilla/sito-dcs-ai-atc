@@ -1,3 +1,13 @@
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Load the single .env at the repo root. This is the ONLY .env file —
+// no .env.local in the sito/ folder. In production (Vercel), env vars
+// come from the Vercel dashboard, not from a file.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",

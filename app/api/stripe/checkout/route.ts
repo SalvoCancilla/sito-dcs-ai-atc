@@ -1,55 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { stripeSecretKey, stripePriceId } from "@/lib/config";
+import { siteUrl, jsonError } from "@/lib/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** Start a Stripe Checkout session for the signed-in user. */
 export async function POST(_req: NextRequest) {
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json(
-      { error: "Not authenticated" },
-      { status: 401 },
-    );
-  }
+  if (!user) return jsonError("Not authenticated", 401, "not_authenticated");
 
-  // In production, create a Stripe Checkout Session here using the
-  // Stripe SDK and the user's email. For now, return a placeholder.
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  const priceId = process.env.STRIPE_PRICE_ID_PERPETUAL;
+  // Refuse to sell a second license to someone who already owns one.
+  const { data: existing } = await supabase
+    .from("licenses")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
 
-  if (!stripeSecretKey || !priceId) {
-    return NextResponse.json(
-      { error: "Stripe not configured" },
-      { status: 503 },
-    );
+  if (existing) {
+    return jsonError("You already own an active license", 409, "already_licensed");
   }
 
   try {
-    // Dynamic import to avoid loading Stripe in dev without keys
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(stripeSecretKey);
-
+    const stripe = new Stripe(stripeSecretKey());
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer_email: user.email ?? undefined,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/cancel`,
-      metadata: {
-        supabase_user_id: user.id,
-      },
+      line_items: [{ price: stripePriceId(), quantity: 1 }],
+      success_url: `${siteUrl()}/success`,
+      cancel_url: `${siteUrl()}/cancel`,
+      // The webhook matches on email, but carrying the id lets us correlate
+      // a payment with an account even if the customer edits their email.
+      metadata: { supabase_user_id: user.id },
     });
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Stripe error" },
-      { status: 500 },
-    );
+    console.error("[stripe] checkout session failed:", err);
+    const message = err instanceof Error ? err.message : "Stripe error";
+    // A missing key is a deployment problem, not a client problem.
+    const status = message.includes("is not configured") ? 503 : 500;
+    return jsonError(message, status, "stripe_error");
   }
 }
