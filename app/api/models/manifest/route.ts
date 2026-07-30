@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createSupabasePublicClient } from "@/lib/supabase/server";
+import { SUPABASE_URL } from "@/lib/supabase/config";
 import { r2PublicBase } from "@/lib/config";
 
 export const runtime = "nodejs";
@@ -32,8 +33,21 @@ export async function GET() {
     );
   }
   if (!data) {
+    // TEMP DEBUG: reveal which project the deployed function talks to and
+    // how many rows the anon role can see (remove after diagnosis).
+    const { count, error: countError } = await supabase
+      .from("model_manifests")
+      .select("*", { count: "exact", head: true });
     return NextResponse.json(
-      { error: "No manifest published", code: "no_manifest" },
+      {
+        error: "No manifest published",
+        code: "no_manifest",
+        debug: {
+          host: new URL(SUPABASE_URL).host,
+          visible_rows: count,
+          count_error: countError?.message ?? null,
+        },
+      },
       { status: 404 },
     );
   }
