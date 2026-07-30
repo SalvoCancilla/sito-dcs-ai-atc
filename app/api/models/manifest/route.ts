@@ -33,19 +33,25 @@ export async function GET() {
     );
   }
   if (!data) {
-    // TEMP DEBUG: reveal which project the deployed function talks to and
-    // how many rows the anon role can see (remove after diagnosis).
-    const { count, error: countError } = await supabase
+    // TEMP DEBUG: decompose the failing query inside the deployed function
+    // (remove after diagnosis).
+    const probePlain = await supabase
       .from("model_manifests")
-      .select("*", { count: "exact", head: true });
+      .select("manifest_version, manifest")
+      .eq("is_current", true);
+    const probeNoFilter = await supabase
+      .from("model_manifests")
+      .select("manifest_version, manifest");
     return NextResponse.json(
       {
         error: "No manifest published",
         code: "no_manifest",
         debug: {
           host: new URL(SUPABASE_URL).host,
-          visible_rows: count,
-          count_error: countError?.message ?? null,
+          plain_rows: probePlain.data?.length ?? null,
+          plain_err: probePlain.error?.message ?? null,
+          nofilter_rows: probeNoFilter.data?.length ?? null,
+          nofilter_err: probeNoFilter.error?.message ?? null,
         },
       },
       { status: 404 },
