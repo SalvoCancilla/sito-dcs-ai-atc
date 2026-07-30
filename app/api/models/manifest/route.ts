@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createSupabasePublicClient } from "@/lib/supabase/server";
-import { SUPABASE_URL } from "@/lib/supabase/config";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
 import { r2PublicBase } from "@/lib/config";
 
 export const runtime = "nodejs";
@@ -42,6 +42,18 @@ export async function GET() {
     const probeNoFilter = await supabase
       .from("model_manifests")
       .select("manifest_version, manifest");
+    // Raw fetch to PostgREST, bypassing supabase-js entirely: isolates
+    // postgrest-js serialization bugs from network/DB issues.
+    const raw = await fetch(
+      `${SUPABASE_URL}/rest/v1/model_manifests?select=id,is_current&is_current=eq.true`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      },
+    );
+    const rawText = await raw.text();
     return NextResponse.json(
       {
         error: "No manifest published",
@@ -52,6 +64,8 @@ export async function GET() {
           plain_err: probePlain.error?.message ?? null,
           nofilter_rows: probeNoFilter.data?.length ?? null,
           nofilter_err: probeNoFilter.error?.message ?? null,
+          raw_status: raw.status,
+          raw_body: rawText.slice(0, 300),
         },
       },
       { status: 404 },
