@@ -43,5 +43,16 @@ export async function POST(req: NextRequest) {
     return jsonError(error.message, status, code);
   }
 
-  return NextResponse.json(signClaims(data));
+  try {
+    return NextResponse.json(signClaims(data));
+  } catch (e) {
+    // Signing depends on server-only env (LICENSE_SIGNING_PRIVATE_KEY_PEM):
+    // surface the real cause instead of an opaque empty 500.
+    console.error("[license] claim signing failed:", e);
+    return jsonError(
+      e instanceof Error ? e.message : "Claim signing failed",
+      500,
+      "signing_failed",
+    );
+  }
 }

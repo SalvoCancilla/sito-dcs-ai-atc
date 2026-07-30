@@ -60,7 +60,7 @@ function privateKey() {
   const pem = process.env.LICENSE_SIGNING_PRIVATE_KEY_PEM;
   if (!pem) {
     throw new Error(
-      "LICENSE_SIGNING_PRIVATE_KEY_PEM is not configured — cannot sign license claims",
+      "LICENSE_SIGNING_PRIVATE_KEY_PEM is not configured - cannot sign license claims",
     );
   }
   // Vercel env vars collapse newlines; accept the \n-escaped form too.
